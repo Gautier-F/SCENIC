@@ -1,0 +1,83 @@
+
+project_name = dir
+path = "../matrix_10x/" + dir
+print(path, type(path))
+
+rule pre_filtering:
+	input: 
+		path
+	output: 
+		loom="ANA_SCN/" + dir + "/loomfiles/dat_filt_scenic.loom",
+		pdf1="ANA_SCN/" + dir + "/res/fig/filtering_panel_prefilter.pdf",
+		pdf2="ANA_SCN/" + dir + "/res/fig/filtering_panel_postfilter.pdf",
+		pdf3="ANA_SCN/" + dir + "/res/fig/genes_cells_percentiles.pdf"
+	conda:
+		"../../snmk_yaml/scanpy.yaml"
+	script:
+		"scripts/script_scanpy.py"
+		
+
+rule GRN:
+	input:
+		loom="ANA_SCN/" + dir + "/loomfiles/dat_filt_scenic.loom",
+		txt="Ressources/allTFs_hg38.txt"
+	output:
+		"ANA_SCN/" + dir + "/res/dat/adj.csv"
+	conda:
+		"../../snmk_yaml/scenic.yaml"
+	shell:
+		"pyscenic grn {input.loom} {input.txt} "		
+		"-o {output} --num_workers 20"
+		
+		
+rule Reg_Pred:
+	input:
+		csv="ANA_SCN/" + dir + "/res/dat/adj.csv",
+		feath="Ressources/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather",
+		tbl="Ressources/motifs-v9-nr.hgnc-m0.001-o0.0.tbl",
+		loom="ANA_SCN/" + dir + "/loomfiles/dat_filt_scenic.loom"
+	output:
+		"ANA_SCN/" + dir + "/res/dat/reg.csv"
+	conda:
+		"../../snmk_yaml/scenic.yaml"
+	shell:
+		"pyscenic ctx {input.csv} {input.feath} "	
+		"--annotations_fname  {input.tbl} "
+		"--expression_mtx_fname {input.loom} "
+		"--mode 'dask_multiprocessing' "
+		"--output {output} "
+		"--num_workers 20 "
+		"--mask_dropouts"
+		
+		
+rule AUCells:	
+	input:
+		loom="ANA_SCN/" + dir + "/loomfiles/dat_filt_scenic.loom",
+		csv="ANA_SCN/" + dir + "/res/dat/reg.csv",
+	output:
+		"ANA_SCN/" + dir + "/res/dat/bin_mtx_SCENIC.loom"
+	conda:
+		"../../snmk_yaml/scenic.yaml"
+	shell:
+		"pyscenic aucell {input.loom} {input.csv} "
+		"--output {output} "
+		"--num_workers 20"
+		
+		
+rule Binarize:
+	input:
+		"ANA_SCN/" + dir + "/res/dat/bin_mtx_SCENIC.loom"
+	conda:
+		"../../snmk_yaml/scenic.yaml"
+	script:
+		"scripts/script_bin_mtx.py"
+		
+		
+rule LoomToSeurat:
+	input:
+		loom="ANA_SCN/" + dir + "/res/dat/bin_mtx_SCENIC.loom"
+	conda:
+		"../../snmk_yaml/seurat.yaml"
+	script:
+		"scripts/script_LoomToSeurat.R"
+		
