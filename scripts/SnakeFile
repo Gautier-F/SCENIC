@@ -1,0 +1,14 @@
+import os
+
+dir = os.listdir("../10x/")[0]
+path = "../10x/" + dir
+print(path)
+
+rule pre_filtering:
+	input: 
+		path
+	output: 
+		"../loomfiles/dat_filt_scenic.loom"
+	script:
+		"script_scanpy_snmk.py"
+	
